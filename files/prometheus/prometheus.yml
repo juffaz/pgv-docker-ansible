@@ -1,0 +1,121 @@
+# my global config
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+      monitor: 'prometheus-project'
+
+# Load and evaluate rules in this file every 'evaluation_interval' seconds.
+rule_files:
+  - 'alert.rules'
+  # - "first.rules"
+  # - "second.rules"
+
+# alert
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      - "alertmanager:9093"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+    static_configs:
+    - targets: ['prometheus:9090']
+
+
+  - job_name: 'cadvisor_metrics'
+    consul_sd_configs:
+    - server: 'consul.service.consul:8500'
+      tags: ['cadvisor']
+
+    scrape_interval: 5s
+
+    relabel_configs:
+    - source_labels: [ '__meta_consul_address', '__meta_consul_service_port' ]
+      action: replace
+      regex: (.+)(?::\d+);(\d+)
+      replacement: $1:$2
+      target_label: __address__
+    - source_labels: [ '__meta_consul_service' ]
+      action: keep
+      regex: (.+)
+      replacement: $1
+      target_label: __name__
+    - source_labels: [ '__meta_consul_service_id' ]
+      action: replace
+      regex: (.*):(.*):(.*)
+      replacement: $2
+      target_label: container_name
+    - source_labels: [ '__meta_consul_tags' ]
+      action: replace
+      regex: .*metricsPath=([a-zA-Z0-9\/]*),*.*
+      replacement: $1
+      target_label: __metrics_path__
+
+
+  - job_name: 'nomad_metrics'
+
+    consul_sd_configs:
+    - server: 'consul.service.consul:8500'
+      services: ['nomad-client', 'nomad','java']
+
+
+    relabel_configs:
+    - source_labels: ['__meta_consul_tags']
+      regex: '(.*)http(.*)'
+      action: keep
+
+    scrape_interval: 5s
+    metrics_path: /v1/metrics
+    params:
+      format: ['prometheus']
+
+  - job_name: 'consul-monitor'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['localhost:9107']
+
+  - job_name: 'oracle_exporter'
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['oracledb-exporter-db1.service.consul:80','oracledb-exporter-db2.service.consul:80']
+
+
+  - job_name: 'node_exporter'
+    scrape_interval: 5s
+    consul_sd_configs:
+    - server: 'consul.service.consul:8500'
+      tags: ['nodes','vm']
+
+    relabel_configs:
+    - source_labels: [ '__meta_consul_service', '__meta_consul_service_port' ]
+      action: replace
+      regex: (.*);(\d+)
+      replacement: $1:$2
+      target_label: instance
+
+  - job_name: 'postgres_exporter'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['db1.service.consul:9140','db2.service.consul:9140']
+
+  - job_name: 'rabbitmq_exporter'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['rabbitmq01cluster:9140','rabbitmq02cluster:9140']
+
