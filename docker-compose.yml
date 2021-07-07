@@ -1,0 +1,134 @@
+version: '3.7'
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.16.0
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - /app1/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--query.max-samples=100000000'
+      - '--storage.tsdb.retention.time=45d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-admin-api'
+    ports:
+      - 9090:9090
+    links:
+      - alertmanager:alertmanager
+    networks:
+      - back-tier
+    restart: always
+
+
+  alertmanager:
+    image: prom/alertmanager:v0.20.0
+    ports:
+      - 9093:9093
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    networks:
+      - back-tier
+    restart: always
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+
+  alertmanager-bot:
+    command:
+      - --alertmanager.url=http://grafana_alertmanager_1:9093
+      - --log.level=info
+      - --store=bolt
+      - --bolt.path=/data/bot.db
+    environment:
+      TELEGRAM_ADMIN: "16818330\n1424313333"
+      TELEGRAM_TOKEN: 1159661111:AAZeWgIoP-8OtSeUcQtqnYetHmTTY-511zE
+    image: metalmatze/alertmanager-bot:0.4.2
+    networks:
+      - alertmanager-bot
+    ports:
+      - 8080:8080
+    restart: always
+    volumes:
+      - /root/.grafana/alertbot:/data
+      - /root/.grafana/alertbot/default.tmpl:/templates/default.tmpl
+    networks:
+      - back-tier
+      
+  grafana:
+    image: grafana/grafana:7.1.1
+    user: "104"
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    volumes:
+      - /app1/grafana:/var/lib/grafana
+      - /app1/grafana/provisioning/:/etc/grafana/provisioning/
+      - /app1/grafana/conf/:/usr/share/grafana/conf/
+    env_file:
+      - /app1/grafana/config.monitoring
+    networks:
+      - back-tier
+      - front-tier
+    restart: always
+    environment:
+      GF_RENDERING_SERVER_URL: http://renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana.service.consul:3000/
+      GF_LOG_FILTERS: rendering:debug
+
+  renderer:
+    image: grafana/grafana-image-renderer:2.0.0
+    ports:
+      - 8081
+    environment:
+      ENABLE_METRICS: 'true'
+
+  vmagent:
+    container_name: vmagent
+    image: victoriametrics/vmagent
+    depends_on:
+      - "victoriametrics"
+    ports:
+      - 8429:8429
+    volumes:
+      - /app1/victoriametrics/vmagentdata:/vmagentdata
+      - /root/.grafana/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--promscrape.config=/etc/prometheus/prometheus.yml'
+      - '--remoteWrite.url=http://victoriametrics:8428/api/v1/write'
+    networks:
+      - back-tier
+    restart: always
+  victoriametrics:
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics
+    ports:
+      - 8428:8428
+      - 8089:8089
+      - 8089:8089/udp
+      - 2003:2003
+      - 2003:2003/udp
+      - 4242:4242
+    volumes:
+      - /app1/victoriametrics/vmdata:/storage
+    command:
+      - '--storageDataPath=/storage'
+      - '--graphiteListenAddr=:2003'
+      - '--opentsdbListenAddr=:4242'
+      - '--httpListenAddr=:8428'
+      - '--influxListenAddr=:8089'
+    networks:
+      - back-tier
+    restart: always
