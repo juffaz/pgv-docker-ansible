@@ -1,0 +1,131 @@
+groups:
+- name: example
+  rules:
+
+  # Alert for any instance that is unreachable for >2 minutes. (1see on service, 0 see only down microservice)
+  - alert: service_down
+    expr: up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} down"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes."
+
+
+  - alert: HostOutOfMemory
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host out of memory (instance {{ $labels.instance }})
+      description: Node memory is filling up (< 90% left)  VALUE = {{ humanize $value }}
+
+  - alert: OracleDB_Service_Down
+    expr: oracledb_up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} down"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes."
+
+  - alert: HostHighCpuLoad
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 70
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Host high CPU load (instance {{ $labels.instance }})
+      description: CPU load is > 70%  VALUE = {{ humanize $value }}
+    #  description: "{{ $labels.instance }} of job {{ $labels.job }} is under high load."
+
+  - alert: HostHighCpuLoad
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Host high CPU load (instance {{ $labels.instance }})
+      description: CPU load is > 80%  VALUE = {{ humanize $value }}
+    #  description: "{{ $labels.instance }} of job {{ $labels.job }} is under high load."
+
+  - alert: ContainerMemoryUsage
+    expr: (sum(container_memory_working_set_bytes) BY (instance, name) / sum(container_spec_memory_limit_bytes > 0) BY (instance, name) * 100) > 95
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: Container Memory usage (instance {{ $labels.job }})
+      description: Container Memory usage is above 95%  VALUE = {{ humanize $value }}
+
+  - alert: ContainerCpuUsage
+    expr: (sum(rate(container_cpu_usage_seconds_total[3m])) BY (instance, name) * 100) > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Container CPU usage (instance {{ $labels.instance }})
+      description: Container CPU usage is above 90%  VALUE = {{ humanize $value }}
+
+  - alert: ContainerVolumeUsage
+    expr: (1 - (sum(container_fs_inodes_free) BY (instance) / sum(container_fs_inodes_total) BY (instance)) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Container Volume usage (instance {{ $labels.instance }})
+      description: Container Volume usage is above 80%  VALUE = {{ humanize $value }}
+
+  - alert: ContainerKilled
+    expr: time() - container_last_seen > 60
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Container killed (instance {{ $labels.instance }})
+      description: A container has disappeared\n  VALUE = {{ humanize $value }}
+
+  - alert: high_load
+    expr: node_load1 > 40
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} under high load"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} is under high load."
+
+  # CPU Usage Alerts
+  - alert: NodeCPUUsageWarning
+    expr: (100 - (avg(irate(node_cpu{mode="idle",name="node-exporter"}[5m])) BY (instance)
+      * 100)) > 45
+    for: 3m
+    labels:
+          severity: warning
+    annotations:
+      summary: '{{$labels.instance}}: High CPU usage detected'
+      description: '{{$labels.instance}}: CPU usage is above 75% (current value is:
+        {{ $value }})'
+
+  - alert: NodeCPUUsageCritical
+    expr: (100 - (avg(irate(node_cpu{mode="idle",name="node-exporter"}[5m])) BY (instance)
+      * 100)) > 50
+    for: 3m
+    labels:
+          severity: critical
+    annotations:
+      summary: '{{$labels.instance}}: High CPU usage detected'
+      description: '{{$labels.instance}}: CPU usage is above 90% (current value is:
+        {{ $value }})'
+
+   # Low Disk Space Alerts
+  - alert: NodeLowRootDiskWarning
+    expr: ((node_filesystem_size{mountpoint="/"} - node_filesystem_free{mountpoint="/"})
+      / node_filesystem_size{mountpoint="/"} * 100) > 50
+    for: 2m
+    labels:
+          severity: warning
+    annotations:
+      summary: '{{$labels.instance}}: Low root disk space'
+      description: '{{$labels.instance}}: Root disk usage is above 80% (current value is: {{ $value }})'
