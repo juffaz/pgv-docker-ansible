@@ -75,10 +75,10 @@ services:
       - 3000:3000
     volumes:
       - /app1/grafana:/var/lib/grafana
-      - /app1/grafana/provisioning/:/etc/grafana/provisioning/
-      - /app1/grafana/conf/:/usr/share/grafana/conf/
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+      - ./grafana/conf/:/usr/share/grafana/conf/
     env_file:
-      - /app1/grafana/config.monitoring
+      - ./grafana/config.monitoring
     networks:
       - back-tier
       - front-tier
@@ -111,6 +111,7 @@ services:
     networks:
       - back-tier
     restart: always
+    
   victoriametrics:
     container_name: victoriametrics
     image: victoriametrics/victoria-metrics
