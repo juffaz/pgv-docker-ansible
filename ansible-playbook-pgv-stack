@@ -43,9 +43,9 @@
       state: directory
       mode: 777
 
-  - name: Copy config files
+  - name: Copy Docker-Compose.yml files
     copy:
-      src: ./files/
+      src: ./docker-compose.yml
       dest: /root/.grafana/
 
   # Some provisioning issues
