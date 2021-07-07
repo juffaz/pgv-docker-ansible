@@ -1,0 +1,64 @@
+---
+- name: Install Prometheus-Grafana-VictoriaMetrics stack
+  hosts: all
+
+  task:
+# ------------------|  security issues  |------------------
+  - name: Firewalld ports
+    firewalld:
+      port: "{{ item }}"
+      permanent: yes
+      state: enabled
+    loop:
+        - 9090/tcp   # prometheus port
+        - 3000/tcp   # prometheus port
+    ignore_errors: yes
+
+  - name: Firewalld reload
+    command: firewall-cmd --reload
+    ignore_errors: yes
+
+# ------------------|  configure  |------------------
+
+  - name: Create config directory
+    file:
+      path: /root/.grafana/
+      state: directory
+
+  - name: Create /app1/grafana directory
+    file:
+      path: /app1/grafana/
+      state: directory
+      mode: 777
+
+  - name: Create /app1/prometheus directory
+    file:
+      path: /app1/prometheus/
+      state: directory
+      mode: 777
+      
+  - name: Create /app1/victoriametrics directory
+    file:
+      path: /app1/victoriametrics/
+      state: directory
+      mode: 777
+
+  - name: Copy config files
+    copy:
+      src: ./files/
+      dest: /root/.grafana/
+
+  # Some provisioning issues
+  # - name: Change permission
+  #   file:
+  #     dest: /root/.grafana/grafana/
+  #     owner: "104"
+  #     group: "104"
+  #     mode: 0755
+  #     recurse: yes
+
+  - name: Compose up
+    shell: /usr/local/bin/docker-compose up -d
+    args:
+      chdir: /root/.grafana/
+
