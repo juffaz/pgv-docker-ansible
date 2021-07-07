@@ -1,0 +1,30 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['...']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 10s
+  #receiver: 'email'
+  receiver: 'alertmananger-bot'
+receivers:
+- name: 'alertmananger-bot'
+  webhook_configs:
+  - send_resolved: true
+    url: 'http://alertmanager-bot:8080'
+#- name: 'email'
+#  email_configs:
+#  - to: 'devops@mail.com'
+#    from: 'devopsmonitor@mail.com'
+#    smarthost: webmail.mail.com:587
+#    auth_username: 'devopsmonitor@mail.com'
+#    auth_identity: 'devopsmonitor@mail.com'
+#    auth_password: 'p4SSw00rd'
+#    require_tls: true
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
